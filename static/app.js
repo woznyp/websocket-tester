@@ -2,10 +2,11 @@ document.onreadystatechange = () => {
   if (document.readyState === "complete") {
     const auth = new Auth();
     auth
-      .askForToken(prompt("password"))
+      .verify()
       .then(() => {
         const gallery = new Gallery(),
           websocketHandler = new WebsocketHandler(auth, gallery);
+
         websocketHandler
           .init()
           .then(() => {
@@ -17,14 +18,19 @@ document.onreadystatechange = () => {
           });
       })
       .catch(err => {
-        document.write(err);
+        if (err) {
+          document.write(err);
+        }
       });
   }
 };
 
 class Auth {
   constructor() {
-    this.token = null;
+    this.token = localStorage.token || null;
+    this.keypad = null;
+    this.passwordField = null;
+    this.promises = {};
   }
 
   askForToken(password) {
@@ -35,6 +41,7 @@ class Auth {
         if (xhr.readyState === XMLHttpRequest.DONE) {
           if (xhr.status === 200) {
             this.token = xhr.response;
+            localStorage.token = this.token;
             resolve();
           } else {
             reject(xhr.status + "###" + xhr.statusText);
@@ -44,6 +51,67 @@ class Auth {
       xhr.send();
     });
     return promise;
+  }
+
+  handleClick(ev) {
+    if (ev.target.innerText) {
+      this.passwordField.innerText += ev.target.innerText;
+    }
+    if (this.passwordField.innerText.length === 6) {
+      this.askForToken(this.passwordField.innerText)
+        .then(() => {
+          this.promises.resolve();
+          this.keypad.remove();
+          this.passwordField.remove();
+        })
+        .catch(() => {
+          // this.promises.reject();
+        });
+      this.passwordField.innerText = "";
+    }
+  }
+
+  generateKeypad() {
+    this.keypad = document.createElement("div");
+    this.passwordField = document.createElement("div");
+
+    this.keypad.appendChild(this.passwordField);
+
+    this.keypad.classList.add("keypad");
+    this.keypad.addEventListener("click", this.handleClick.bind(this));
+    document.body.addEventListener("keyup", ev => {
+      if (!isNaN(Number(ev.key))) {
+        this.handleClick({ target: { innerText: ev.key } });
+      }
+    });
+    for (let i = 1; i < 11; i++) {
+      let numberContainer = document.createElement("button");
+      numberContainer.innerText = i === 10 ? 0 : i;
+
+      this.keypad.appendChild(numberContainer);
+    }
+    document.body.appendChild(this.keypad);
+  }
+
+  verify() {
+    const promise = new Promise((resolve, reject) => {
+      if (this.token) {
+        resolve();
+      } else {
+        this.generateKeypad();
+        this.promises = {
+          resolve: resolve,
+          reject: reject
+        };
+      }
+    });
+
+    return promise;
+  }
+
+  resetToken() {
+    this.token = null;
+    localStorage.clear();
   }
 }
 
@@ -187,6 +255,13 @@ class WebsocketHandler {
         Logger.log("connection error", err);
         reject();
       };
+
+      this.connection.onclose = err => {
+        Logger.log("connection interrupted", err);
+        this.auth.resetToken();
+        reject();
+        window.location.reload();
+      };
     });
 
     return promise;
@@ -216,7 +291,7 @@ class WebsocketHandler {
   }
 
   send(message) {
-    if (this.connection.readyState === 1) {
+    if (this.connection.readyState === 1 && localStorage.token) {
       this.connection.send(
         JSON.stringify({ topic: message.topic || "", data: message.data })
       );

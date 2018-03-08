@@ -2,9 +2,23 @@
 <html>
 
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>websocket stream tester</title>
     <script src="app.js"></script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+        }
+
         .hidden {
             display: none;
         }
@@ -14,6 +28,35 @@
             -webkit-filter: grayscale(100%);
             /* Safari 6.0 - 9.0 */
             filter: grayscale(100%);
+        }
+
+        div.keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+        }
+
+        div.keypad {
+            height: 100vh;
+            width: 100vw;
+        }
+
+        div.keypad button,
+        div.keypad div {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: arial;
+            font-size: 25px;
+        }
+
+        div.keypad div:first-child {
+            grid-column-start: 1;
+            grid-column-end: 4;
+        }
+
+        div.keypad button:last-child {
+            grid-column-start: 2;
         }
     </style>
 </head>
